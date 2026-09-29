@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse // Athlete Performance Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfeff',
+              100: '#cffafe',
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+            },
+            dark: {
+              bg: '#070a12',
+              card: '#0d1322',
+              border: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-[#070a12] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="sticky top-0 z-40 bg-[#070a12]/90 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <i data-lucide="activity" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <span class="font-extrabold tracking-wider text-lg gradient-text-cyan">PULSE</span>
+            <span class="text-xs px-2 py-0.5 ml-1.5 rounded-full bg-slate-800 text-cyan-400 font-mono border border-cyan-500/30">ATHLETE LAB</span>
+          </div>
+        </div>
+
+        <!-- Form Status Badge -->
+        <div id="nav-form-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="nav-tsb-text">Form: Berechne...</span>
+        </div>
+      </div>
+
+      <!-- Main Navigation Tabs -->
+      <nav class="hidden md:flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-sm">
+        <button onclick="switchTab('cockpit')" id="tab-btn-cockpit" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-cyan-400 bg-slate-800/90 shadow-sm flex items-center space-x-1.5">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Cockpit</span>
+        </button>
+        <button onclick="switchTab('trends')" id="tab-btn-trends" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+          <i data-lucide="trending-up" class="w-4 h-4"></i>
+          <span>Form & Verläufe</span>
+        </button>
+        <button onclick="switchTab('activities')" id="tab-btn-activities" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+          <i data-lucide="list" class="w-4 h-4"></i>
+          <span>Aktivitäten</span>
+        </button>
+        <button onclick="switchTab('coach')" id="tab-btn-coach" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+          <span>KI-Coach & Plan</span>
+        </button>
+        <button onclick="switchTab('sync')" id="tab-btn-sync" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span>Auto-Sync</span>
+        </button>
+        <button onclick="switchTab('profile')" id="tab-btn-profile" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+          <i data-lucide="user" class="w-4 h-4"></i>
+          <span>Zonen & Profil</span>
+        </button>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <button onclick="triggerQuickSync()" id="quick-sync-btn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold transition active:scale-95">
+          <i data-lucide="refresh-cw" id="sync-icon" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Sync</span>
+        </button>
+        <div id="demo-indicator" class="hidden sm:flex text-xs px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+          Demo-Daten
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Nav Bar -->
+    <div class="flex md:hidden overflow-x-auto mt-3 pt-2 border-t border-slate-800 space-x-1 text-xs">
+      <button onclick="switchTab('cockpit')" class="tab-btn px-3 py-1.5 rounded-md text-cyan-400 bg-slate-800 whitespace-nowrap">Cockpit</button>
+      <button onclick="switchTab('trends')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 whitespace-nowrap">Verläufe</button>
+      <button onclick="switchTab('activities')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 whitespace-nowrap">Aktivitäten</button>
+      <button onclick="switchTab('coach')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 whitespace-nowrap">KI-Coach</button>
+      <button onclick="switchTab('sync')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 whitespace-nowrap">Sync</button>
+      <button onclick="switchTab('profile')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 whitespace-nowrap">Zonen</button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+
+    <!-- ================= TAB 1: COCKPIT ================= -->
+    <div id="tab-cockpit" class="tab-content space-y-8">
+      
+      <!-- TODAY'S TRAINING RECOMMENDATION (HERO CARD) -->
+      <div id="today-suggestion-card" class="glass-card rounded-2xl p-6 sm:p-7 relative overflow-hidden border border-slate-800 glass-card-glow-cyan">
+        <div class="absolute -right-16 -top-16 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div class="space-y-3 max-w-3xl">
+            <div class="flex items-center space-x-3">
+              <span id="sugg-badge-readiness" class="px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                Optimale Belastbarkeit
+              </span>
+              <span id="sugg-badge-type" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                Grundlagenausdauer (Z2)
+              </span>
+              <span class="text-xs text-slate-400 hidden sm:inline font-mono">Tages-Empfehlung</span>
+            </div>
+            
+            <h2 id="sugg-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Lade heutigen Trainingsvorschlag...
+            </h2>
+            
+            <p id="sugg-desc" class="text-slate-300 text-sm sm:text-base leading-relaxed">
+              Deine physiologischen Trainingsparameter werden analysiert...
+            </p>
+
+            <!-- Focus points -->
+            <div id="sugg-focus-container" class="grid sm:grid-cols-3 gap-2.5 pt-2"></div>
+          </div>
+
+          <!-- Quick Metrics Target Card -->
+          <div class="flex-shrink-0 bg-slate-900/90 border border-slate-700/60 rounded-xl p-4 sm:p-5 flex flex-col justify-center space-y-3 min-w-[240px]">
+            <div class="text-xs font-mono text-slate-400 uppercase tracking-wider">Zielwerte Heute</div>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="text-xs text-slate-400">Dauer / Distanz</span>
+              <span id="sugg-target-duration" class="font-bold text-white font-mono text-sm">50 Min / 8.5 km</span>
+            </div>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="text-xs text-slate-400">Herzfrequenz</span>
+              <span id="sugg-target-hr" class="font-bold text-cyan-400 font-mono text-sm">135 - 150 bpm</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400">Intensität</span>
+              <span id="sugg-target-pace" class="font-bold text-emerald-400 font-mono text-sm">5:15 - 5:35 /km</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KEY KPIS GRID (7-DAY ROLLING) -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Weekly Distance -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-medium uppercase tracking-wider font-mono">Volumen (7 Tage)</span>
+            <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="kpi-total-km" class="text-3xl font-extrabold text-white font-mono">--</span>
+            <span class="text-sm text-slate-400 font-medium">km gesamt</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+            <span id="kpi-run-km" class="text-cyan-400 font-medium">🏃 -- km</span>
+            <span id="kpi-ride-km" class="text-indigo-400 font-medium">🚴 -- km</span>
+          </div>
+        </div>
+
+        <!-- Weekly Time -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-medium uppercase tracking-wider font-mono">Trainingszeit (7d)</span>
+            <i data-lucide="clock" class="w-4 h-4 text-indigo-400"></i>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="kpi-total-hours" class="text-3xl font-extrabold text-white font-mono">--</span>
+            <span class="text-sm text-slate-400 font-medium">Stunden</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-400 flex items-center space-x-1">
+            <i data-lucide="mountain" class="w-3.5 h-3.5 text-amber-400 inline"></i>
+            <span id="kpi-total-elevation" class="text-slate-300 font-medium">-- hm Höhenmeter</span>
+          </div>
+        </div>
+
+        <!-- Fitness CTL & Form TSB -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-medium uppercase tracking-wider font-mono">Form (TSB / Balance)</span>
+            <i data-lucide="gauge" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="kpi-current-tsb" class="text-3xl font-extrabold text-emerald-400 font-mono">--</span>
+            <span id="kpi-tsb-status" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Optimal</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-400 flex items-center justify-between">
+            <span>Fitness (CTL): <b id="kpi-current-ctl" class="text-slate-200">--</b></span>
+            <span>Ermüdung: <b id="kpi-current-atl" class="text-slate-200">--</b></span>
+          </div>
+        </div>
+
+        <!-- Estimated VO2max -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-medium uppercase tracking-wider font-mono">Geschätzte VO2max</span>
+            <i data-lucide="heart-pulse" class="w-4 h-4 text-rose-400"></i>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="kpi-vo2max" class="text-3xl font-extrabold text-white font-mono">--</span>
+            <span class="text-xs text-slate-400 font-medium">ml/kg/min</span>
+          </div>
+          <div class="mt-2 text-xs text-emerald-400 font-medium flex items-center space-x-1">
+            <i data-lucide="award" class="w-3.5 h-3.5 inline"></i>
+            <span>Sehr gutes Ausdauer-Niveau</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RACE PREDICTIONS BANNER (RIEGEL FORMULA) -->
+      <div class="glass-card rounded-xl p-5 border border-slate-800">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-2">
+              <i data-lucide="timer" class="w-4 h-4 text-cyan-400"></i>
+              <span>Berechnete Wettkampf-Prognosen (Riegel-Formel)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Basierend auf deinen besten Dauerläufen & Schwelleneinheiten</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="bg-slate-900/80 rounded-lg p-3.5 border border-slate-800">
+            <div class="text-xs text-slate-400 font-medium">5 km Prognose</div>
+            <div id="pred-5k" class="text-xl font-bold font-mono text-cyan-400 mt-1">--</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">Maximalpace</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-lg p-3.5 border border-slate-800">
+            <div class="text-xs text-slate-400 font-medium">10 km Prognose</div>
+            <div id="pred-10k" class="text-xl font-bold font-mono text-indigo-400 mt-1">--</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">Schwellenbereich</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-lg p-3.5 border border-slate-800">
+            <div class="text-xs text-slate-400 font-medium">Halbmarathon (21.1 km)</div>
+            <div id="pred-hm" class="text-xl font-bold font-mono text-emerald-400 mt-1">--</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">Aerobe Kapazität</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-lg p-3.5 border border-slate-800">
+            <div class="text-xs text-slate-400 font-medium">Marathon (42.2 km)</div>
+            <div id="pred-marathon" class="text-xl font-bold font-mono text-amber-400 mt-1">--</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">Fettstoffwechsel</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERFORMANCE TREND PREVIEW & RECENT ACTIVITIES -->
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Mini Trend Chart -->
+        <div class="lg:col-span-2 glass-card rounded-xl p-5 border border-slate-800 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-violet-400"></i>
+                <span>Formkurve & Ermüdung (Letzte 30 Tage)</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">CTL (Fitness), ATL (Ermüdung) und TSB (Form)</p>
+            </div>
+            <button onclick="switchTab('trends')" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1">
+              <span>Detailansicht</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div class="h-64 w-full">
+            <canvas id="mini-trend-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Recent Activities Feed -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-2">
+              <i data-lucide="history" class="w-4 h-4 text-cyan-400"></i>
+              <span>Letzte Einheiten</span>
+            </h3>
+            <button onclick="switchTab('activities')" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">
+              Alle anzeigen
+            </button>
+          </div>
+          <div id="recent-activities-list" class="space-y-3 flex-1 overflow-y-auto max-h-72 pr-1">
+            <!-- Injected via JS -->
+            <div class="text-xs text-slate-500 text-center py-8">Lade Aktivitäten...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 2: TRENDS & FORM ================= -->
+    <div id="tab-trends" class="tab-content hidden space-y-8">
+      
+      <!-- Performance Management Chart Header & Range Switcher -->
+      <div class="glass-card rounded-xl p-6 border border-slate-800">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center space-x-2.5">
+              <i data-lucide="trending-up" class="w-5 h-5 text-cyan-400"></i>
+              <span>Performance Management Chart (Banister / Coggan Modell)</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              Verfolge deine aerobe Fitness (CTL, 42-Tage-Durchschnitt), Ermüdung (ATL, 7-Tage-Durchschnitt) und Tagesform (TSB).
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+            <button onclick="loadTrendData(30)" id="range-30" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">30 Tage</button>
+            <button onclick="loadTrendData(60)" id="range-60" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">60 Tage</button>
+            <button onclick="loadTrendData(90)" id="range-90" class="px-3 py-1.5 rounded-md bg-slate-800 text-cyan-400 font-semibold shadow-sm transition">90 Tage</button>
+            <button onclick="loadTrendData(180)" id="range-180" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">180 Tage</button>
+          </div>
+        </div>
+
+        <!-- Big Trend Canvas -->
+        <div class="h-80 sm:h-96 w-full">
+          <canvas id="big-trend-chart"></canvas>
+        </div>
+
+        <!-- Legend / Info Box -->
+        <div class="grid sm:grid-cols-3 gap-4 mt-6 pt-5 border-t border-slate-800/80 text-xs">
+          <div class="flex items-start space-x-3">
+            <div class="w-3.5 h-3.5 rounded-full bg-indigo-500 mt-0.5 flex-shrink-0"></div>
+            <div>
+              <span class="font-bold text-white">Fitness (CTL)</span>
+              <p class="text-slate-400 mt-0.5">Chronische Trainingsbelastung über 42 Tage. Je höher, desto größer deine aerobe Kapazität.</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3">
+            <div class="w-3.5 h-3.5 rounded-full bg-rose-500 mt-0.5 flex-shrink-0"></div>
+            <div>
+              <span class="font-bold text-white">Ermüdung (ATL)</span>
+              <p class="text-slate-400 mt-0.5">Akuter Stress der letzten 7 Tage. Steigt nach harten Intervallen oder langen Ausfahrten steil an.</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3">
+            <div class="w-3.5 h-3.5 rounded-full bg-emerald-400 mt-0.5 flex-shrink-0"></div>
+            <div>
+              <span class="font-bold text-white">Form / Balance (TSB)</span>
+              <p class="text-slate-400 mt-0.5">Differenz (CTL - ATL). Werte zwischen +5 und +25 bedeuten optimale Rennfrische!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly Volume Stacked Bar Chart -->
+      <div class="glass-card rounded-xl p-6 border border-slate-800">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center space-x-2">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+              <span>Wöchentliches Trainingsvolumen (Laufen vs. Radfahren)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Distanzverteilung in Kilometern pro Kalenderwoche</p>
+          </div>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="volume-bar-chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 3: AKTIVITÄTEN ================= -->
+    <div id="tab-activities" class="tab-content hidden space-y-6">
+      
+      <!-- Filter Bar -->
+      <div class="glass-card rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center space-x-2">
+          <button onclick="filterActivities('all')" id="filter-all" class="act-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-cyan-400 border border-cyan-500/30">
+            Alle Aktivitäten
+          </button>
+          <button onclick="filterActivities('Run')" id="filter-run" class="act-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-900 border border-slate-800">
+            🏃 Nur Laufen
+          </button>
+          <button onclick="filterActivities('Ride')" id="filter-ride" class="act-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-900 border border-slate-800">
+            🚴 Nur Radsport
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs text-slate-400">
+          <span id="activities-count" class="font-mono font-medium">Lade...</span>
+        </div>
+      </div>
+
+      <!-- Activities Grid / List -->
+      <div id="activities-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injected via JS -->
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 4: KI-COACH & PLAN ================= -->
+    <div id="tab-coach" class="tab-content hidden space-y-8">
+      
+      <!-- AI Coach Header Card -->
+      <div class="glass-card rounded-2xl p-6 sm:p-7 border border-slate-800 relative overflow-hidden glass-card-glow-violet">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="space-y-3">
+            <div class="flex items-center space-x-3">
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-400 border border-violet-500/30 flex items-center space-x-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i>
+                <span id="ai-engine-badge">Gemini 3.8 Flash AI Coach</span>
+              </span>
+              <span class="text-xs text-slate-400 font-mono">Sportwissenschaftliche Trainingsassistenz</span>
+            </div>
+            
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+              Dein persönlicher Ausdauer-Coach
+            </h2>
+            
+            <p class="text-slate-300 text-sm leading-relaxed max-w-3xl">
+              Der Coach analysiert kontinuierlich deine physiologische Belastung (CTL, ATL, TSB), deine Herzfrequenzdaten und deine Trainingshistorie, um dir adaptive Empfehlungen nach dem 80/20-Prinzip zu geben.
+            </p>
+          </div>
+
+          <!-- Polarized Training 80/20 Metric -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-xl p-4 sm:p-5 min-w-[260px] space-y-2.5">
+            <div class="text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>80/20 Polarisierung</span>
+              <span class="text-emerald-400 font-bold">Optimal</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-3 flex overflow-hidden">
+              <div class="bg-cyan-500 h-full" style="width: 82%" title="82% Zone 1 & 2 (Grundlagenausdauer)"></div>
+              <div class="bg-rose-500 h-full" style="width: 18%" title="18% Zone 4 & 5 (Schwellen & VO2max)"></div>
+            </div>
+            <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+              <span class="text-cyan-400">82% aerobe Basis (Z1/Z2)</span>
+              <span class="text-rose-400">18% Qualität (Z4/Z5)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Coach Chat -->
+      <div class="glass-card rounded-xl border border-slate-800 flex flex-col h-[520px]">
+        <!-- Chat Message Log -->
+        <div id="coach-chat-log" class="flex-1 p-5 overflow-y-auto space-y-4">
+          <!-- Initial Welcome Message from Coach -->
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md">
+              <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+            </div>
+            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed max-w-2xl">
+              <p class="font-bold text-white mb-1">Hallo! Ich habe deine aktuellen Leistungsdaten analysiert.</p>
+              <p>Du kannst mich jederzeit fragen, was du heute trainieren sollst, wie du deinen Halbmarathon oder Marathon angehen willst, oder ob du nach deiner letzten Einheit einen Ruhetag brauchst.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Question Prompts -->
+        <div class="px-5 py-2.5 bg-slate-900/60 border-t border-slate-800/80 flex items-center space-x-2 overflow-x-auto text-xs">
+          <span class="text-slate-500 text-[11px] flex-shrink-0">Schnellfragen:</span>
+          <button onclick="askCoachPrompt('Was soll ich heute optimalerweise trainieren?')" class="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-cyan-400 whitespace-nowrap transition">
+            Was soll ich heute trainieren?
+          </button>
+          <button onclick="askCoachPrompt('Wie bereite ich mich auf einen 10k Wettkampf vor?')" class="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap transition">
+            10k Vorbereitung
+          </button>
+          <button onclick="askCoachPrompt('Wie steht es um meine aktuelle Form und Ermüdung?')" class="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap transition">
+            Form & Ermüdungs-Check
+          </button>
+          <button onclick="askCoachPrompt('Erstelle mir einen 7-Tage-Trainingsplan mit Laufen und Radfahren.')" class="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap transition">
+            Wochenplan erstellen
+          </button>
+        </div>
+
+        <!-- Input Field -->
+        <div class="p-4 bg-slate-900/90 border-t border-slate-800 flex items-center space-x-3">
+          <input type="text" id="coach-input" placeholder="Frage deinen Coach etwas zu deinem Training oder deiner Form..." 
+                 class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition"
+                 onkeydown="if(event.key === 'Enter') sendCoachMessage()">
+          <button onclick="sendCoachMessage()" id="coach-send-btn" class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-sm transition flex items-center space-x-1.5 shadow-md shadow-cyan-500/20">
+            <span>Senden</span>
+            <i data-lucide="send" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 5: AUTO-SYNC & QUELLEN ================= -->
+    <div id="tab-sync" class="tab-content hidden space-y-8">
+      
+      <!-- HUAWEI HEALTH AUTOMATION GUIDE -->
+      <div class="glass-card rounded-2xl p-6 sm:p-7 border border-slate-800 relative overflow-hidden">
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+            <i data-lucide="watch" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-white">Huawei Health: 100% Automatischer Datenabgleich</h2>
+            <p class="text-xs text-slate-400">So landen deine Läufe & Radfahrten vollautomatisch im Dashboard – ohne manuellen Datei-Upload</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-5 mt-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 flex flex-col space-y-2.5">
+            <div class="w-7 h-7 rounded-lg bg-red-500/20 text-red-400 font-bold flex items-center justify-center font-mono text-sm">1</div>
+            <h4 class="font-bold text-white text-sm">Huawei Health öffnen</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Öffne die <b>Huawei Health (Gesundheit)</b> App auf deinem Smartphone und tippe unten rechts auf <b>Konto (Ich)</b>.
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 flex flex-col space-y-2.5">
+            <div class="w-7 h-7 rounded-lg bg-red-500/20 text-red-400 font-bold flex items-center justify-center font-mono text-sm">2</div>
+            <h4 class="font-bold text-white text-sm">Mit Strava verknüpfen</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Gehe zu <b>Datenschutzverwaltung -> Datenfreigabe & Autorisierung -> Strava</b> und aktiviere den Sync. (Alternativ bei Android: App <i>Health Sync</i>).
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 flex flex-col space-y-2.5">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center font-mono text-sm">3</div>
+            <h4 class="font-bold text-white text-sm">Automatisch synchron</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Jedes Workout auf deiner Huawei Watch wird sofort nach dem Beenden an Strava gesendet und dieses Dashboard holt es automatisch ab!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STRAVA API INTEGRATION -->
+      <div class="glass-card rounded-2xl p-6 sm:p-7 border border-slate-800 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <i data-lucide="zap" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Strava API Anbindung</h3>
+              <p class="text-xs text-slate-400">Kopple deinen Strava-Account für automatische Abfrage der neuesten Aktivitäten</p>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button onclick="connectWithStrava()" id="btn-oauth-strava" class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs transition flex items-center space-x-2 shadow-lg shadow-orange-600/30 active:scale-95">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              <span>1-Klick: Mit Strava verbinden</span>
+            </button>
+            <button onclick="triggerQuickSync()" id="btn-sync-strava" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-bold text-xs transition flex items-center space-x-2">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span>Jetzt synchronisieren</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3-Step Setup Guide -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs space-y-2 text-slate-300">
+          <div class="font-bold text-white flex items-center space-x-1.5">
+            <i data-lucide="help-circle" class="w-4 h-4 text-cyan-400"></i>
+            <span>So holst du deine Strava API-Daten in 60 Sekunden:</span>
+          </div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-400 pl-1">
+            <li>Öffne <a href="https://www.strava.com/settings/api" target="_blank" class="text-cyan-400 underline font-medium hover:text-cyan-300">strava.com/settings/api</a> in deinem Browser (kostenlos).</li>
+            <li>Erstelle eine App: Name: <code class="text-slate-200 bg-slate-800 px-1 rounded font-mono">Pulse Hub</code> | Kategorie: <code class="text-slate-200 bg-slate-800 px-1 rounded font-mono">Training</code> | Callback Domain: <code class="text-emerald-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono font-bold">localhost</code></li>
+            <li>Kopiere <b>Client ID</b> und <b>Client Secret</b> in die Felder unten und klicke auf <b>"1-Klick: Mit Strava verbinden"</b>!</li>
+          </ol>
+        </div>
+
+        <!-- Credentials Form -->
+        <div class="grid sm:grid-cols-2 gap-4 pt-2">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1.5">Strava Client ID</label>
+            <input type="text" id="strava-client-id" placeholder="z. B. 123456" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1.5">Strava Client Secret</label>
+            <input type="password" id="strava-client-secret" placeholder="••••••••••••••••" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <div class="text-xs text-slate-400">
+            Letzter erfolgreicher Sync: <span id="sync-last-time" class="text-slate-200 font-mono">--</span>
+          </div>
+          <button onclick="saveStravaSettings()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition">
+            Client ID & Secret speichern
+          </button>
+        </div>
+      </div>
+
+      <!-- FALLBACK FILE UPLOAD & DEMO RESET -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Manual File Upload -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 space-y-4">
+          <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+            <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i>
+            <span>Manueller Datei-Import (GPX / TCX)</span>
+          </h4>
+          <p class="text-xs text-slate-400">
+            Falls du einzelne Workouts manuell aus Huawei Health oder Garmin importieren möchtest:
+          </p>
+          <div class="border-2 border-dashed border-slate-700 hover:border-cyan-500/60 rounded-xl p-6 text-center cursor-pointer transition"
+               onclick="document.getElementById('file-upload-input').click()">
+            <i data-lucide="file-up" class="w-8 h-8 text-slate-400 mx-auto mb-2"></i>
+            <span class="text-xs text-slate-300 font-medium block">Klicke zum Auswählen oder ziehe die Datei hierhin</span>
+            <span class="text-[11px] text-slate-500 block mt-1">Unterstützt .gpx und .tcx</span>
+            <input type="file" id="file-upload-input" accept=".gpx,.tcx" class="hidden" onchange="handleFileUpload(this.files[0])">
+          </div>
+        </div>
+
+        <!-- Demo Mode Management -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 space-y-4 flex flex-col justify-between">
+          <div>
+            <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i>
+              <span>Test- & Demo-Modus</span>
+            </h4>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              Möchtest du das Dashboard mit authentischen Läufen und Radeinheiten testen oder deine Datenbank zurücksetzen?
+            </p>
+          </div>
+
+          <div class="space-y-3 pt-3">
+            <button onclick="resetDemoData()" class="w-full px-4 py-2.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium text-xs transition flex items-center justify-center space-x-2">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span>Authentische 60-Tage Demo-Daten laden</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 6: ZONEN & PROFIL ================= -->
+    <div id="tab-profile" class="tab-content hidden space-y-8">
+      
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Profile Inputs -->
+        <div class="glass-card rounded-2xl p-6 border border-slate-800 space-y-5">
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+            <span>Physiologische Parameter</span>
+          </h3>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-mono text-slate-400 mb-1">Athleten-Name</label>
+              <input type="text" id="prof-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Maximalpuls (HFmax)</label>
+                <input type="number" id="prof-max-hr" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Ruhepuls (HFruhe)</label>
+                <input type="number" id="prof-rest-hr" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Schwellenpace (s/km)</label>
+                <input type="number" id="prof-threshold-pace" placeholder="280 (4:40/km)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Rad-FTP (Watt)</label>
+                <input type="number" id="prof-ftp" placeholder="240" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Gewicht (kg)</label>
+                <input type="number" step="0.5" id="prof-weight" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Wochenziel (km)</label>
+                <input type="number" id="prof-target-km" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-mono text-slate-400 mb-1">Gemini API Key (für KI-Coach)</label>
+              <input type="password" id="settings-gemini-key" placeholder="AIzaSy..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono">
+              <span class="text-[11px] text-slate-500 mt-1 block">Optional: Schaltet den unbegrenzten Konversations-Modus frei.</span>
+            </div>
+
+            <button onclick="saveUserProfile()" class="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs transition">
+              Profil & Parameter speichern
+            </button>
+          </div>
+        </div>
+
+        <!-- Calculated Heart Rate Zones (Karvonen Method) -->
+        <div class="lg:col-span-2 glass-card rounded-2xl p-6 border border-slate-800 space-y-5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center space-x-2">
+              <i data-lucide="heart" class="w-4 h-4 text-rose-400"></i>
+              <span>Deine 5 Herzfrequenz-Zonen (Karvonen-Formel)</span>
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">Herzfrequenzreserve (HFR)</span>
+          </div>
+
+          <div id="hr-zones-list" class="space-y-3">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ACTIVITY DETAIL MODAL -->
+  <div id="activity-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="glass-card bg-[#0d1322] border border-slate-700/80 rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-5 sm:p-7 space-y-6 shadow-2xl">
+      <!-- Modal Header -->
+      <div class="flex items-start justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center space-x-3">
+          <div id="modal-sport-icon" class="w-11 h-11 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xl">
+            🏃
+          </div>
+          <div>
+            <h3 id="modal-title" class="text-xl sm:text-2xl font-bold text-white">Aktivität</h3>
+            <div class="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
+              <span id="modal-date">--</span>
+              <span>•</span>
+              <span id="modal-source-badge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Strava</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="closeActivityModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 4 Top Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-[11px] text-slate-400 font-mono uppercase tracking-wider">Distanz</div>
+          <div id="modal-dist" class="text-2xl font-bold text-white font-mono mt-0.5">--</div>
+        </div>
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-[11px] text-slate-400 font-mono uppercase tracking-wider">Dauer</div>
+          <div id="modal-time" class="text-2xl font-bold text-white font-mono mt-0.5">--</div>
+        </div>
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-[11px] text-slate-400 font-mono uppercase tracking-wider">Pace / Speed</div>
+          <div id="modal-pace" class="text-2xl font-bold text-cyan-400 font-mono mt-0.5">--</div>
+        </div>
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-[11px] text-slate-400 font-mono uppercase tracking-wider">Herzfrequenz (Ø)</div>
+          <div id="modal-hr" class="text-2xl font-bold text-rose-400 font-mono mt-0.5">--</div>
+        </div>
+      </div>
+
+      <!-- Secondary Metrics -->
+      <div class="grid grid-cols-3 gap-3 text-xs font-mono">
+        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+          <span class="text-slate-400">Höhenmeter:</span> <b id="modal-elev" class="text-slate-200">--</b>
+        </div>
+        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+          <span class="text-slate-400">Kadenz:</span> <b id="modal-cadence" class="text-slate-200">--</b>
+        </div>
+        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+          <span class="text-slate-400">Training Stress (TSS):</span> <b id="modal-tss" class="text-cyan-400">--</b>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE ROUTE MAP -->
+      <div id="modal-map-container" class="space-y-2">
+        <div class="text-xs font-bold text-white flex items-center justify-between">
+          <span class="flex items-center space-x-1.5">
+            <i data-lucide="map" class="w-4 h-4 text-cyan-400"></i>
+            <span>GPS-Route & Strecke</span>
+          </span>
+          <span id="modal-map-status" class="text-[11px] text-slate-400 font-mono"></span>
+        </div>
+        <div id="modal-map" class="h-64 sm:h-80 w-full rounded-xl overflow-hidden border border-slate-800 bg-slate-950 relative z-0">
+          <div id="modal-map-fallback" class="absolute inset-0 flex items-center justify-center text-slate-500 text-xs hidden">
+            Keine GPS-Strecke für dieses Workout aufgezeichnet
+          </div>
+        </div>
+      </div>
+
+      <!-- TIME-SERIES DIAGRAMS: HEART RATE OVER TIME -->
+      <div id="modal-hr-chart-container" class="space-y-2">
+        <div class="text-xs font-bold text-white flex items-center justify-between">
+          <span class="flex items-center space-x-1.5">
+            <i data-lucide="heart" class="w-4 h-4 text-rose-400"></i>
+            <span>Pulsverlauf (Herzfrequenz über Zeit)</span>
+          </span>
+          <span id="modal-hr-max-label" class="text-[11px] text-rose-400 font-mono"></span>
+        </div>
+        <div class="h-44 sm:h-52 w-full bg-slate-900/60 rounded-xl p-3 border border-slate-800">
+          <canvas id="modal-hr-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- TIME-SERIES DIAGRAMS: ELEVATION & SPEED/PACE -->
+      <div id="modal-altitude-chart-container" class="space-y-2">
+        <div class="text-xs font-bold text-white flex items-center justify-between">
+          <span class="flex items-center space-x-1.5">
+            <i data-lucide="mountain" class="w-4 h-4 text-amber-400"></i>
+            <span>Höhenprofil & Geschwindigkeit</span>
+          </span>
+        </div>
+        <div class="h-44 sm:h-52 w-full bg-slate-900/60 rounded-xl p-3 border border-slate-800">
+          <canvas id="modal-altitude-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Heart Rate Zones Distribution Bar -->
+      <div id="modal-hr-zones-section" class="space-y-2">
+        <div class="text-xs font-bold text-white flex items-center justify-between">
+          <span>Herzfrequenz-Zonen Verteilung</span>
+        </div>
+        <div id="modal-hr-bar" class="w-full bg-slate-800 rounded-full h-4 flex overflow-hidden">
+          <!-- Injected via JS -->
+        </div>
+        <div id="modal-hr-legend" class="grid grid-cols-5 text-[11px] text-slate-400 text-center font-mono">
+          <span>Z1</span><span>Z2</span><span>Z3</span><span>Z4</span><span>Z5</span>
+        </div>
+      </div>
+
+      <!-- Splits Table (For Runs) -->
+      <div id="modal-splits-section" class="space-y-2">
+        <div class="text-xs font-bold text-white">Kilometer-Splits</div>
+        <div class="overflow-x-auto max-h-48 overflow-y-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="text-slate-400 border-b border-slate-800 bg-slate-900/80">
+              <tr>
+                <th class="py-2 px-3">Km</th>
+                <th class="py-2 px-3">Pace</th>
+                <th class="py-2 px-3">Ø Puls</th>
+                <th class="py-2 px-3">Höhen-Diff</th>
+              </tr>
+            </thead>
+            <tbody id="modal-splits-tbody" class="divide-y divide-slate-800/50 font-mono">
+              <!-- Injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="text-right pt-2 border-t border-slate-800">
+        <button onclick="closeActivityModal()" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition">
+          Schließen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 shadow-xl text-xs font-medium text-white flex items-center space-x-2">
+    <i data-lucide="info" id="toast-icon" class="w-4 h-4 text-cyan-400"></i>
+    <span id="toast-msg">Meldung</span>
+  </div>
+
+  <script src="/static/app.js?v=20260929_1142"></script>
+</body>
+</html>
